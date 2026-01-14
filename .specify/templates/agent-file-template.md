@@ -1,3 +1,5 @@
+<!-- Version: 0.0.90 -->
+
 # [PROJECT NAME] Development Guidelines
 
 Auto-generated from all feature plans. Last updated: [DATE]
