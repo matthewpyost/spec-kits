@@ -1,10 +1,11 @@
 {
     "chat.promptFilesRecommendations": {
-        "speckit.constitution": true,
+        "speckit.constitution": false,
         "speckit.specify": true,
-        "speckit.plan": true,
-        "speckit.tasks": true,
-        "speckit.implement": true
+        "speckit.plan": false,
+        "speckit.tasks": false,
+        "speckit.implement": false,
+        "update-speckit-toolkit": true
     },
     "chat.tools.terminal.autoApprove": {
         ".specify/scripts/powershell/": true

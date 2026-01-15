@@ -66,6 +66,29 @@ The constitution defines the shared principles and standards that all spec-kits 
 
 4. The changes will be reviewed by repository maintainers
 
+### For Repository Owners: Updating Spec-Kit Infrastructure
+
+The spec-kit utility infrastructure (scripts, templates, and configuration files) should be kept in sync with the official [spec-kit repository](https://github.com/github/spec-kit).
+
+**To update the infrastructure:**
+
+1. Switch to the **Update Spec-Kit Infrastructure** custom agent in GitHub Copilot Chat
+
+2. Ask the agent: _"Update the spec-kit infrastructure to the latest version"_
+
+3. The agent will:
+
+   - Fetch the latest release from the official spec-kit repository
+   - Download and extract the appropriate template
+   - Update files in `.specify/scripts/`, `.specify/templates/`, and `.github/`
+   - Add version headers to all updated files
+
+4. Review the changes and commit them with a descriptive message
+
+5. Submit a Pull Request for review
+
+> **Important**: The `.specify/` directory contains utility infrastructure and should only be updated using this automated process, never manually.
+
 ## Pull Request Workflow
 
 For any contribution (new spec-kit or constitution update):
