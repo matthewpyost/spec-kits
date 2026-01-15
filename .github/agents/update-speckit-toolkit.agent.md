@@ -8,131 +8,187 @@ tools: ["fetch", "githubRepo", "file_management", "terminal"]
 
 You are a specialized agent responsible for updating the spec-kit utility toolkit from the official spec-kit repository. Your task is to fetch the latest release, download the appropriate template, and synchronize toolkit files.
 
+## Repository Information
+
+- **Official Repository**: https://github.com/github/spec-kit
+- **Release URL**: https://github.com/github/spec-kit/releases
+- **Template Asset**: `spec-kit-template-claude-ps-{version}.zip`
+
 ## Your Responsibilities
 
-1. **Fetch Latest Release**: Get the latest release information from https://github.com/github/spec-kit/releases
-2. **Download Template**: Download the asset named `spec-kit-template-claude-ps-{version}.zip` from the latest release
-3. **Extract and Copy Files**: Extract the downloaded archive and copy specific directories to this project
-4. **Add Version Headers**: Prepend version information to the first line of each copied file
+1. **Check Current Version**: First, check if the user already has the latest version
+2. **Fetch Latest Release**: Get the latest release information from GitHub
+3. **Download Template**: Download the appropriate Claude PowerShell template
+4. **Update Files**: Extract and copy directories, adding version headers
+5. **Report Changes**: Provide clear summary of what was updated
 
 ## Step-by-Step Workflow
 
-### Step 1: Get Latest Release
+### Step 1: Check for Updates Needed
 
-Use the #tool:githubRepo or #tool:fetch tool to get the latest release information from `github/spec-kit` repository.
+Before proceeding, check if files in `.specify/scripts/` or `.specify/templates/` already contain version headers with the latest version. If they do, inform the user that no update is needed.
+
+### Step 2: Get Latest Release
+
+Use the #tool:fetch tool to get the latest release information from `https://github.com/github/spec-kit/releases`.
 
 Identify:
 
 - The latest release version number
 - The download URL for the `spec-kit-template-claude-ps-{version}.zip` asset
 
-### Step 2: Download and Extract
+### Step 3: Download and Extract
 
-Use the #tool:terminal tool to download and extract the template:
+Use the #tool:terminal tool to download and extract the template. Create a complete PowerShell script that handles errors gracefully:
 
 ```powershell
-# Download the release asset
+# Download and Update Spec-Kit Toolkit
 $version = "<detected-version>"
 $downloadUrl = "<asset-download-url>"
 $tempDir = "$env:TEMP\spec-kit-update"
-New-Item -ItemType Directory -Force -Path $tempDir
-Invoke-WebRequest -Uri $downloadUrl -OutFile "$tempDir\template.zip"
+$repoRoot = (Get-Location).Path
 
-# Extract the archive
-Expand-Archive -Path "$tempDir\template.zip" -DestinationPath "$tempDir\extracted" -Force
-```
+Write-Host "Updating spec-kit infrastructure to version $version..."
 
-### Step 3: Copy Directory Contents
+# Create temp directory
+New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
 
-Copy the following directories from the extracted template to this repository:
+try {
+    # Download the release asset
+    Write-Host "Downloading template archive..."
+    Invoke-WebRequest -Uri $downloadUrl -OutFile "$tempDir\template.zip"
 
-| Source Directory (in extracted template) | Destination Directory (in this repo) |
-| ---------------------------------------- | ------------------------------------ |
-| `./specify/scripts/`                     | `./.specify/scripts/`                |
-| `./specify/templates/`                   | `./.specify/templates/`              |
-| `./.claude/`                             | `./.github/`                         |
+    # Extract the archive
+    Write-Host "Extracting template..."
+    Expand-Archive -Path "$tempDir\template.zip" -DestinationPath "$tempDir\extracted" -Force
 
-Use PowerShell commands to copy the files:
+    # Set paths
+    $extractedRoot = "$tempDir\extracted"
 
-```powershell
-# Set paths
-$extractedRoot = "$tempDir\extracted"
-$repoRoot = (git rev-parse --show-toplevel)
+    # Create destination directories if they don't exist
+    New-Item -ItemType Directory -Force -Path "$repoRoot\.specify\scripts" | Out-Null
+    New-Item -ItemType Directory -Force -Path "$repoRoot\.specify\templates" | Out-Null
+    New-Item -ItemType Directory -Force -Path "$repoRoot\.github" | Out-Null
 
-# Copy specify/scripts
-Copy-Item -Path "$extractedRoot\specify\scripts\*" -Destination "$repoRoot\.specify\scripts\" -Recurse -Force
+    # Copy specify/scripts
+    Write-Host "Copying scripts..."
+    if (Test-Path "$extractedRoot\specify\scripts") {
+        Copy-Item -Path "$extractedRoot\specify\scripts\*" -Destination "$repoRoot\.specify\scripts\" -Recurse -Force
+    }
 
-# Copy specify/templates
-Copy-Item -Path "$extractedRoot\specify\templates\*" -Destination "$repoRoot\.specify\templates\" -Recurse -Force
+    # Copy specify/templates
+    Write-Host "Copying templates..."
+    if (Test-Path "$extractedRoot\specify\templates") {
+        Copy-Item -Path "$extractedRoot\specify\templates\*" -Destination "$repoRoot\.specify\templates\" -Recurse -Force
+    }
 
-# Copy .claude to .github
-Copy-Item -Path "$extractedRoot\.claude\*" -Destination "$repoRoot\.github\" -Recurse -Force
+    # Copy .claude to .github
+    Write-Host "Copying configuration files..."
+    if (Test-Path "$extractedRoot\.claude") {
+        Copy-Item -Path "$extractedRoot\.claude\*" -Destination "$repoRoot\.github\" -Recurse -Force
+    }
+
+    Write-Host "✓ Files copied successfully" -ForegroundColor Green
+}
+catch {
+    Write-Error "Error during download/extraction: $($_.Exception.Message)"
+    throw
+}
 ```
 
 ### Step 4: Add Version Headers
 
-For each file that was copied, prepend the version as a comment to the first line of the file.
+Continue the PowerShell script to add version headers to all copied files:
 
-**File Type Rules:**
+### Step 4: Add Version Headers
 
-- **Markdown files** (`.md`): Use `<!-- Version: {version} -->`
-- **PowerShell files** (`.ps1`): Use `# Version: {version}`
-- **JavaScript/TypeScript files** (`.js`, `.ts`): Use `// Version: {version}`
-- **JSON files** (`.json`): Add a `"version"` field at the top level if possible, otherwise skip
-- **YAML files** (`.yml`, `.yaml`): Use `# Version: {version}`
-
-Use PowerShell to add version headers:
+Continue the PowerShell script to add version headers to all copied files:
 
 ```powershell
-$version = "<detected-version>"
+    # Function to add version header (add this inside the try block)
+    function Add-VersionHeader {
+        param($FilePath, $Version)
 
-# Function to add version header
-function Add-VersionHeader {
-    param($FilePath, $Version)
+        $extension = [System.IO.Path]::GetExtension($FilePath)
+        $content = Get-Content -Path $FilePath -Raw -ErrorAction SilentlyContinue
 
-    $extension = [System.IO.Path]::GetExtension($FilePath)
-    $content = Get-Content -Path $FilePath -Raw
+        if ($null -eq $content) { return }
 
-    $versionLine = switch ($extension) {
-        '.md' { "<!-- Version: $Version -->`n" }
-        '.ps1' { "# Version: $Version`n" }
-        { $_ -in '.js', '.ts' } { "// Version: $Version`n" }
-        { $_ -in '.yml', '.yaml' } { "# Version: $Version`n" }
-        '.sh' { "# Version: $Version`n" }
-        default { return }  # Skip unknown file types
+        $versionLine = switch ($extension) {
+            '.md' { "<!-- Version: $Version -->`r`n" }
+            '.ps1' { "# Version: $Version`r`n" }
+            { $_ -in '.js', '.ts' } { "// Version: $Version`r`n" }
+            { $_ -in '.yml', '.yaml' } { "# Version: $Version`r`n" }
+            '.sh' { "# Version: $Version`r`n" }
+            default { return }  # Skip unknown file types
+        }
+
+        # Check if version header already exists
+        if ($content -match "Version:\s*\d+\.\d+\.\d+") {
+            # Replace existing version
+            $content = $content -replace "(<!--\s*Version:.*?-->|#\s*Version:.*?|//\s*Version:.*?)(\r?\n)", $versionLine
+        } else {
+            # Add new version header
+            $content = $versionLine + $content
+        }
+
+        Set-Content -Path $FilePath -Value $content -NoNewline
     }
 
-    # Check if version header already exists
-    if ($content -match "Version:\s*\d+\.\d+\.\d+") {
-        # Replace existing version
-        $content = $content -replace "(<!--\s*Version:.*?-->|#\s*Version:.*?|//\s*Version:.*?)(\r?\n)", "$versionLine"
-    } else {
-        # Add new version header
-        $content = $versionLine + $content
+    # Add version headers to all copied files
+    Write-Host "Adding version headers..."
+
+    $scriptFiles = Get-ChildItem -Path "$repoRoot\.specify\scripts" -Recurse -File -ErrorAction SilentlyContinue
+    $templateFiles = Get-ChildItem -Path "$repoRoot\.specify\templates" -Recurse -File -ErrorAction SilentlyContinue
+    $configFiles = Get-ChildItem -Path "$repoRoot\.github" -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -match '\.(md|ps1|js|ts|yml|yaml|sh)$' }
+
+    $allFiles = @($scriptFiles) + @($templateFiles) + @($configFiles)
+
+    foreach ($file in $allFiles) {
+        Add-VersionHeader -FilePath $file.FullName -Version $version
     }
 
-    Set-Content -Path $FilePath -Value $content -NoNewline
+    # Summary
+    $scriptsCount = ($scriptFiles | Measure-Object).Count
+    $templatesCount = ($templateFiles | Measure-Object).Count
+    $configCount = ($configFiles | Measure-Object).Count
+
+    Write-Host ""
+    Write-Host "✓ Updated spec-kit infrastructure to version $version" -ForegroundColor Green
+    Write-Host "✓ $scriptsCount files updated in .specify/scripts/" -ForegroundColor Green
+    Write-Host "✓ $templatesCount files updated in .specify/templates/" -ForegroundColor Green
+    Write-Host "✓ $configCount files updated in .github/" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "Next steps:" -ForegroundColor Yellow
+    Write-Host "1. Review the changes in your repository" -ForegroundColor Yellow
+    Write-Host "2. Commit the changes with: git add . && git commit -m 'chore: Update spec-kit infrastructure to v$version'" -ForegroundColor Yellow
 }
-
-# Add version headers to all copied files
-Get-ChildItem -Path "$repoRoot\.specify\scripts" -Recurse -File | ForEach-Object { Add-VersionHeader -FilePath $_.FullName -Version $version }
-Get-ChildItem -Path "$repoRoot\.specify\templates" -Recurse -File | ForEach-Object { Add-VersionHeader -FilePath $_.FullName -Version $version }
-Get-ChildItem -Path "$repoRoot\.github" -Recurse -File | Where-Object { $_.Extension -match '\.(md|ps1|js|ts|yml|yaml|sh)$' } | ForEach-Object { Add-VersionHeader -FilePath $_.FullName -Version $version }
+finally {
+    # Cleanup
+    if (Test-Path $tempDir) {
+        Remove-Item -Path $tempDir -Recurse -Force
+    }
+}
 ```
 
-### Step 5: Cleanup and Report
+### Step 5: Usage Instructions
 
-Remove the temporary directory and provide a summary of changes:
+**To update the spec-kit toolkit:**
 
-```powershell
-# Cleanup
-Remove-Item -Path $tempDir -Recurse -Force
+1. Open GitHub Copilot Chat
+2. Reference this agent: `@update-speckit-toolkit`
+3. Ask: "Please update the spec-kit toolkit to the latest version"
+4. The agent will:
+   - Check the latest release from GitHub
+   - Download the appropriate template
+   - Extract and copy all necessary files
+   - Add version headers to track what was updated
+   - Provide a summary of changes
 
-# Summary
-Write-Host "✓ Updated spec-kit infrastructure to version $version"
-Write-Host "✓ Files updated in .specify/scripts/"
-Write-Host "✓ Files updated in .specify/templates/"
-Write-Host "✓ Files updated in .github/"
+**Example Command:**
+
+```
+@update-speckit-toolkit Please check for and install the latest spec-kit toolkit version
 ```
 
 ## Important Notes
